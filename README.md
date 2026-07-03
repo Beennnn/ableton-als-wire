@@ -70,6 +70,11 @@ versions may differ — the format is Ableton's to change.
   SWAM factory-mapping extractor, state decoder, parameter-ID hash, `.swamec`
   generator. The `juce:` ID scheme here comes from that work.
 
+## Discussion
+
+Announced alongside its companion [swam-toolkit](https://github.com/Beennnn/swam-toolkit)
+in this [KVR Audio thread](https://www.kvraudio.com/forum/viewtopic.php?t=631399).
+
 ## Credits
 
 Built by Benoît Besson in an AI-assisted workflow: a substantial part of the
