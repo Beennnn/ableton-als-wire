@@ -1,0 +1,32 @@
+{
+  "track": "Lead",
+  "macros": {"1": "Growl", "2": "Flutter"},
+  "midi_maps": {"1": [1, 12], "2": [1, 13]},
+  "chain_nested": true,
+  "devices": [
+    {"plugin": "SWAM Trumpet",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter Tongue", "id": "juce:flutterTongue", "macro": 2}]},
+    {"plugin": "SWAM Tenor Trombone",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter Tongue", "id": "juce:flutterTongue", "macro": 2}]},
+    {"plugin": "SWAM Tenor Sax 3",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter", "id": "juce:flutter", "macro": 2}]},
+    {"plugin": "SWAM Piccolo 3",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter", "id": "juce:flutter", "macro": 2}]},
+    {"plugin": "SWAM Flute 3",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter", "id": "juce:flutter", "macro": 2}]},
+    {"plugin": "SWAM Alto Flute 3",
+     "params": [{"name": "Growl", "id": "juce:growl", "macro": 1},
+                {"name": "Flutter", "id": "juce:flutter", "macro": 2}]},
+    {"plugin": "SWAM Violin 3",
+     "params": [{"name": "Tremolo", "id": "juce:tremoloParam", "macro": 1}]},
+    {"plugin": "SWAM Viola 3",
+     "params": [{"name": "Tremolo", "id": "juce:tremoloParam", "macro": 1}]},
+    {"plugin": "SWAM Cello 3",
+     "params": [{"name": "Tremolo", "id": "juce:tremoloParam", "macro": 1}]}
+  ]
+}
