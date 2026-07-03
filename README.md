@@ -70,6 +70,14 @@ versions may differ — the format is Ableton's to change.
   SWAM factory-mapping extractor, state decoder, parameter-ID hash, `.swamec`
   generator. The `juce:` ID scheme here comes from that work.
 
+## Credits
+
+Built by Benoît Besson in an AI-assisted workflow: a substantial part of the
+format archaeology, tooling and documentation was produced together with
+[Claude](https://claude.com/claude-code) (Anthropic). The wiring structures
+were learned from projects authored by Ableton Live itself and validated on a
+real live-rig project.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). As-is, no warranty; not affiliated with Ableton
