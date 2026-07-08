@@ -10,6 +10,9 @@ see ``docs/als-format-notes.md`` for the reverse-engineering notes.
 Commands:
     inspect  PROJECT.als [--track NAME]     show tracks / racks / devices /
                                             exposed params / MIDI mappings
+    swam     PROJECT.als [--track NAME]     decode each SWAM device's internal
+                                            state (velocity / expression / CC)
+                                            — diagnose why a chain is silent
     wire     PROJECT.als SPEC.json          apply a wiring spec
              [--out OUT.als | --in-place]
 
@@ -46,6 +49,7 @@ import argparse
 import gzip
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -179,6 +183,127 @@ def cmd_inspect(args) -> None:
                       + (f" exposed: {', '.join(exposed)}" if exposed else ""))
 
 
+# ------------------------------------------------------------------- swam --
+# The parameters that decide whether a SWAM instrument actually makes sound —
+# and why two instances of the SAME instrument behave differently — live INSIDE
+# the plugin's binary VST state chunk, not in the Ableton-exposed params that
+# `inspect` shows. This command decodes that chunk per chain.
+#
+# `velocity` is the classic silent-trap: SWAM builds its level from EXPRESSION
+# (breath / a continuous CC), NOT from note velocity, UNLESS this knob is > 0.
+# A chain with velocity≈0 AND no live Expression CC arriving produces zero
+# dynamics = no sound when played from the keys. That single knob (0 vs 35) is
+# what made a "Sax" chain silent while an identical "Sax2" sounded (2026-07-07).
+_SWAM_RE = re.compile(r"<swam\b.*?</swam>", re.DOTALL)
+
+
+def swam_state(dev: ET.Element):
+    """Decoded <swam> XML from a device's VST state chunk, or None if this
+    device carries no SWAM state (non-SWAM plugin)."""
+    for buf in dev.iter("Buffer"):
+        if not buf.text:
+            continue
+        try:
+            raw = bytes.fromhex(re.sub(r"\s", "", buf.text))
+        except ValueError:
+            continue
+        m = _SWAM_RE.search(raw.decode("latin-1", "ignore"))
+        if m:
+            return m.group(0)
+    return None
+
+
+def swam_param(swam: str, pid: str):
+    m = re.search(r'<PARAM id="' + pid + r'" value="([-\d.eE]+)"', swam)
+    return m.group(1) if m else None
+
+
+def swam_expr_cc(swam: str):
+    """CC number driving `expression` (the level knob), or None if unmapped —
+    unmapped + velocity≈0 is the guaranteed-silent case."""
+    m = re.search(r'<MIDIRemappingEntry parameterId="expression"[^>]*'
+                  r'messageType="1"[^>]*msb="(-?\d+)"', swam)
+    return m.group(1) if m and m.group(1) != "-1" else None
+
+
+def enclosing_chain(el: ET.Element, parents: dict) -> str:
+    """EffectiveName of the InstrumentBranch (rack chain) holding this device —
+    that's the name the user sees on the chain (e.g. 'Sax', 'Sax2')."""
+    n = el
+    while n in parents:
+        n = parents[n]
+        if n.tag == "InstrumentBranch":
+            return effective_name(n)
+    return "—"
+
+
+def _num(v):
+    """Compact display: 0.00800000037997961 -> '0.008', 35.0 -> '35'."""
+    if v is None:
+        return "?"
+    try:
+        return f"{float(v):g}"
+    except ValueError:
+        return v
+
+
+def cmd_swam(args) -> None:
+    root = load(args.project)
+    parents = build_parent_map(root)
+    rows = []
+    for tag in TRACK_TAGS:
+        for tr in root.iter(tag):
+            tname = effective_name(tr)
+            if args.track and tname != args.track:
+                continue
+            for d in (dev for t in DEVICE_TAGS for dev in tr.iter(t)):
+                swam = swam_state(d)
+                if not swam:
+                    continue
+                prog = re.search(r'<program name="([^"]*)"', swam)
+                vel = swam_param(swam, "velocity")
+                try:
+                    silent = vel is not None and float(vel) < 1.0
+                except ValueError:
+                    silent = False
+                rows.append({
+                    "track": tname,
+                    "chain": enclosing_chain(d, parents),
+                    "inst": prog.group(1) if prog else (plugin_name(d) or "?"),
+                    "vel": vel,
+                    "expr": swam_param(swam, "expression"),
+                    "vol": swam_param(swam, "mainVolume"),
+                    "cc": swam_expr_cc(swam),
+                    "vib": swam_param(swam, "vibratoDepth"),
+                    "growl": swam_param(swam, "growl"),
+                    "bend": f'{_num(swam_param(swam, "pitchBendUp"))}/'
+                            f'{_num(swam_param(swam, "pitchBendDown"))}',
+                    "silent": silent,
+                })
+    if not rows:
+        print("no SWAM devices found"
+              + (f" on track {args.track!r}" if args.track else ""))
+        return
+    hdr = (f'{"TRACK":<10} {"CHAIN":<12} {"INSTRUMENT":<16} {"vel":>6} '
+           f'{"expr":>7} {"vol":>6} {"exprCC":>7} {"vib":>6} {"growl":>6} '
+           f'{"bendU/D":>8}')
+    print(hdr)
+    print("-" * len(hdr))
+    for r in rows:
+        cc = f'CC{r["cc"]}' if r["cc"] else "—"
+        flag = "  ⚠ muet au clavier (velocity≈0)" if r["silent"] else ""
+        print(f'{r["track"][:10]:<10} {r["chain"][:12]:<12} {r["inst"][:16]:<16} '
+              f'{_num(r["vel"]):>6} {_num(r["expr"]):>7} {_num(r["vol"]):>6} '
+              f'{cc:>7} {_num(r["vib"]):>6} {_num(r["growl"]):>6} '
+              f'{r["bend"]:>8}{flag}')
+    n = sum(1 for r in rows if r["silent"])
+    if n:
+        print(f'\n⚠  {n} chaîne(s) à velocity≈0 → muettes au clavier tant qu\'un '
+              f'CC Expression continu (souffle) ne les pilote pas.')
+        print('   Fix : ouvrir le SWAM concerné, remonter le knob Velocity (~35) '
+              'pour matcher une chaîne qui sonne.')
+
+
 # ------------------------------------------------------------------- wire --
 def resolve_id(v) -> int:
     if isinstance(v, int):
@@ -265,6 +390,11 @@ if __name__ == "__main__":
     p1.add_argument("project")
     p1.add_argument("--track")
     p1.set_defaults(func=cmd_inspect)
+    ps = sub.add_parser("swam", help="decode SWAM state per chain "
+                        "(velocity/expression/CC — why a chain is silent)")
+    ps.add_argument("project")
+    ps.add_argument("--track")
+    ps.set_defaults(func=cmd_swam)
     p2 = sub.add_parser("wire", help="apply a wiring spec (backup + new file)")
     p2.add_argument("project")
     p2.add_argument("spec")
