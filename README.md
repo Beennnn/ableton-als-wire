@@ -31,7 +31,7 @@ rack changes.
 ## Install
 
 ```bash
-git clone https://github.com/Beennnn/als-wire.git
+git clone https://github.com/Beennnn/ableton-als-wire.git
 cd als-wire && python3 als_wire.py inspect "Some Project.als"
 ```
 
