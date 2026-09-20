@@ -1,4 +1,6 @@
-# als-wire
+<p align="center"><img src="assets/banner.svg" alt="ableton-als-wire" width="100%"></p>
+
+# ableton-als-wire
 
 **Expose plugin parameters, map them to rack macros and MIDI-map those macros —
 in batch, by editing an Ableton Live `.als` file directly. No GUI clicking.**
@@ -32,7 +34,7 @@ rack changes.
 
 ```bash
 git clone https://github.com/Beennnn/ableton-als-wire.git
-cd als-wire && python3 als_wire.py inspect "Some Project.als"
+cd ableton-als-wire && python3 als_wire.py inspect "Some Project.als"
 ```
 
 Python 3, standard library only — nothing to install.
